@@ -129,7 +129,7 @@ export function attachGame(io: Server, db: Database) {
     });
 
     on('rooms:mine', () => ({
-      rooms: db.myRooms(pid()).map((r) => ({ ...r, online: manager.onlineCount(r.code) })),
+      rooms: db.myRooms(pid()).map((r) => ({ ...r, online: manager.onlineCount(r.code), ...db.roomMembers(r.code) })),
     }));
 
     on<[{ code: unknown; spectator?: unknown }]>('room:join', (input) => {

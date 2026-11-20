@@ -141,6 +141,9 @@ export class Database {
     };
     this.st = {
       setAvatarImage: w('UPDATE players SET avatar_img = ?, avatar_ver = ?, updated_at = ? WHERE id = ?'),
+      roomMembersPreview: p(`SELECT p.id, p.name, p.avatar, p.color, p.avatar_ver FROM room_members m JOIN players p ON p.id = m.player_id
+                             WHERE m.room_code = ? ORDER BY m.last_seen DESC LIMIT ?`),
+      roomMemberCount: p('SELECT COUNT(*) AS c FROM room_members WHERE room_code = ?'),
       myRooms: p(`SELECT r.code, r.round_no, (r.created_by = ?) AS mine, COALESCE(m.last_seen, r.created_at) AS last_seen
                   FROM rooms r LEFT JOIN room_members m ON m.room_code = r.code AND m.player_id = ?
                   WHERE r.created_by = ? OR m.player_id IS NOT NULL
@@ -330,6 +333,18 @@ export class Database {
         code: string; round_no: number; mine: number; last_seen: number;
       }[]
     ).map((r) => ({ code: r.code, rounds: r.round_no, mine: r.mine === 1, lastSeen: r.last_seen }));
+  }
+
+  /** Die zuletzt aktiven Spieler eines Raums (für die Vorschau auf der Startseite) + Gesamtzahl. */
+  roomMembers(code: string, limit = 3): { members: PublicProfile[]; total: number } {
+    const rows = this.st.roomMembersPreview.all(code, limit) as unknown as {
+      id: string; name: string; avatar: string; color: string; avatar_ver: number | null;
+    }[];
+    const total = Number((this.st.roomMemberCount.get(code) as unknown as { c: number }).c);
+    return {
+      members: rows.map((r) => ({ id: r.id, name: r.name, avatar: r.avatar, color: r.color, img: r.avatar_ver ?? null })),
+      total,
+    };
   }
 
   touchMember(code: string, playerId: string) {

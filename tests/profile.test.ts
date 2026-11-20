@@ -88,5 +88,11 @@ describe('Dauerhafte Raumcodes', () => {
     expect(db.myRooms(a).map((r) => r.code)).toEqual(['AAAA']);
     expect(new Set(db.myRooms(b).map((r) => r.code))).toEqual(new Set(['AAAA', 'BBBB']));
     expect(db.myRooms(a)[0].mine).toBe(true);
+    // Vorschau für die Startseite: wer hat zuletzt im Raum gespielt
+    r1.join(a, 'sa', false);
+    const preview = db.roomMembers('AAAA', 3);
+    expect(preview.total).toBe(2);
+    expect(new Set(preview.members.map((m) => m.name))).toEqual(new Set(['A', 'B']));
+    expect(preview.members[0]).toHaveProperty('img');
   });
 });

@@ -14,6 +14,8 @@ interface ChipProps {
   ring?: string;
   label?: string;
   className?: string;
+  /** ohne eigenen Schlagschatten (z. B. im 3D-Chip, der einen eigenen Schatten hat) */
+  flat?: boolean;
 }
 
 /** Spezial-Chip "ALL IN": schwarz mit Gold – setzt das gesamte Guthaben. */
@@ -50,7 +52,7 @@ export function AllInChip({ size = 44, className }: { size?: number | string; cl
 }
 
 /** Casino-Chip als SVG: Grundfarbe, Randstreifen, Innenfeld mit Wert. */
-export function Chip({ value, size = 44, ring, label, className }: ChipProps) {
+export function Chip({ value, size = 44, ring, label, className, flat }: ChipProps) {
   const st = chipStyleFor(value);
   const text = label ?? fmtShort(value);
   const fs = text.length >= 4 ? 17 : text.length === 3 ? 20 : 24;
@@ -59,7 +61,7 @@ export function Chip({ value, size = 44, ring, label, className }: ChipProps) {
       viewBox="0 0 100 100"
       className={className}
       aria-hidden="true"
-      style={{ width: size, height: size, display: 'block', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.55))' }}
+      style={{ width: size, height: size, display: 'block', filter: flat ? undefined : 'drop-shadow(0 2px 3px rgba(0,0,0,.55))' }}
     >
       {ring && <circle cx="50" cy="50" r="49" fill={ring} />}
       <circle cx="50" cy="50" r={ring ? 44 : 48} fill={st.base} />

@@ -33,6 +33,8 @@ interface Props {
   spin: WheelSpin | null;
   restNumber: number;
   quality: 'high' | 'low';
+  /** 'table' = ganzes Rad von oben (Spielraum), 'hero' = flacher Nahblick (Startseite) */
+  variant?: 'table' | 'hero';
 }
 
 const COLORS = { red: '#b3202a', black: '#16181c', green: '#138a4b' } as const;
@@ -163,7 +165,7 @@ function Environment() {
 }
 
 /** Kamera so platzieren, dass das Rad in jedes Seitenverhältnis passt. */
-function CameraRig() {
+function CameraRig({ variant }: { variant: 'table' | 'hero' }) {
   const { camera, size } = useThree();
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
@@ -171,12 +173,15 @@ function CameraRig() {
     const vfov = THREE.MathUtils.degToRad(cam.fov);
     const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
     // Breite ≈ Raddurchmesser, Höhe ≈ schräg gesehene Scheibe + Drehkreuz
-    const dist = Math.max(6.1 / Math.tan(hfov / 2), 5.7 / Math.tan(vfov / 2)) * 1.04;
-    const tilt = THREE.MathUtils.degToRad(52);
-    cam.position.set(0, Math.sin(tilt) * dist, Math.cos(tilt) * dist);
-    cam.lookAt(0, 0.1, 0);
+    const dist = Math.max(6.1 / Math.tan(hfov / 2), 5.7 / Math.tan(vfov / 2)) * (variant === 'hero' ? 0.86 : 1.04);
+    // Hero: flacher Blick von links vorne, wie ein Spieler am Tisch
+    const tilt = THREE.MathUtils.degToRad(variant === 'hero' ? 30 : 52);
+    const yaw = variant === 'hero' ? -0.35 : 0;
+    const flat = Math.cos(tilt) * dist;
+    cam.position.set(Math.sin(yaw) * flat, Math.sin(tilt) * dist, Math.cos(yaw) * flat);
+    cam.lookAt(0, variant === 'hero' ? 0.4 : 0.1, 0);
     cam.updateProjectionMatrix();
-  }, [camera, size]);
+  }, [camera, size, variant]);
   return null;
 }
 
@@ -373,7 +378,7 @@ function WheelModel({ spin, restNumber }: { spin: WheelSpin | null; restNumber: 
   );
 }
 
-export default function Wheel3D({ spin, restNumber, quality }: Props) {
+export default function Wheel3D({ spin, restNumber, quality, variant = 'table' }: Props) {
   return (
     <Canvas
       key={quality}
@@ -383,7 +388,7 @@ export default function Wheel3D({ spin, restNumber, quality }: Props) {
       aria-label="3D-Rouletterad"
       role="img"
     >
-      <CameraRig />
+      <CameraRig variant={variant} />
       <Environment />
       <ambientLight intensity={0.35} />
       <directionalLight position={[4, 10, 6]} intensity={2.2} />
