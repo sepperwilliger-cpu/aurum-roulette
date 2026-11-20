@@ -1,0 +1,22 @@
+# Render-Blueprint: ein kostenloser Web-Service (Frontend + Echtzeit-Server in einem Prozess).
+# Daten (Profile, Guthaben, Räume) liegen dauerhaft in Turso – siehe README, Abschnitt "Online stellen".
+services:
+  - type: web
+    name: aurum-roulette
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --no-audit --no-fund && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      # Werte trägst du beim Erstellen selbst bei Render ein (werden nicht im Code gespeichert):
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
