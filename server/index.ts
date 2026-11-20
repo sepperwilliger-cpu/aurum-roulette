@@ -30,7 +30,9 @@ async function main() {
   const db = new Database(tursoUrl ? ':memory:' : path.join(dataDir, 'aurum.db'));
   let replica: Replica | null = null;
   if (tursoUrl) {
-    replica = await connectReplica(tursoUrl, process.env.TURSO_AUTH_TOKEN?.trim(), db);
+    // Häufige Kopierfehler entschärfen: Leerzeichen, Zeilenumbrüche, Anführungszeichen
+    const clean = (v?: string) => v?.replace(/\s+/g, '').replace(/^["']+|["']+$/g, '');
+    replica = await connectReplica(clean(tursoUrl)!, clean(process.env.TURSO_AUTH_TOKEN), db);
     db.setWriteListener((sql, args) => replica!.push(sql, args));
   }
   const server = createServer((req, res) => {

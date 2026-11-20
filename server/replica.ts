@@ -32,13 +32,47 @@ export async function connectReplica(
   db: Database,
   log: (msg: string) => void = console.log,
 ): Promise<Replica> {
-  const client = await createLibsqlClient(url, authToken);
+  // Diagnose ohne Geheimnisse preiszugeben: nur Host sowie Länge/Form des Tokens
+  let host = url;
+  try {
+    host = new URL(url).host;
+  } catch {
+    /* ungültige URL – wird unten gemeldet */
+  }
+  log(`  ➜  Turso:   verbinde mit ${host} (Token: ${describeToken(authToken)})`);
+  if (!url.startsWith('file:') && !/^(libsql|https|wss?):\/\/[^/]+\.turso\.io\/?$/.test(url)) {
+    log('  ⚠  TURSO_DATABASE_URL sieht ungewöhnlich aus – erwartet: libsql://<name>.<region>.turso.io');
+  }
 
-  // 1) Schema in Turso sicherstellen (inkl. später hinzugekommener Spalten)
-  await client.executeMultiple(SCHEMA);
-  const info = await client.execute('PRAGMA table_info(players)');
-  const remoteCols = info.rows.map((r) => String(r.name));
-  for (const [col, sql] of PLAYER_COLUMN_MIGRATIONS) if (!remoteCols.includes(col)) await client.execute(sql);
+  const client = await createLibsqlClient(url, authToken);
+  const step = async <T>(name: string, fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn();
+    } catch (e) {
+      const msg = (e as Error).message;
+      const hint = /40[013]/.test(msg)
+        ? ' → Wahrscheinlich ist TURSO_AUTH_TOKEN falsch oder unvollständig kopiert (neuen Token bei Turso erstellen und bei Render einfügen).'
+        : '';
+      throw new Error(`Turso-Schritt "${name}" fehlgeschlagen: ${msg}${hint}`);
+    }
+  };
+
+  // 0) Verbindung + Berechtigung prüfen
+  await step('Verbindung testen', () => client.execute('SELECT 1'));
+
+  // 1) Schema in Turso sicherstellen – jeder Befehl einzeln (funktioniert mit jedem Turso-Protokoll)
+  const statements = SCHEMA.split(';')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const sql of statements) await step('Tabellen anlegen', () => client.execute(sql));
+  // später hinzugekommene Spalten: einfach versuchen, "existiert schon" ignorieren
+  for (const [, sql] of PLAYER_COLUMN_MIGRATIONS) {
+    try {
+      await client.execute(sql);
+    } catch (e) {
+      if (!/duplicate column/i.test((e as Error).message)) throw new Error(`Turso-Migration fehlgeschlagen: ${(e as Error).message}`);
+    }
+  }
 
   // 2) Alle Daten in die lokale Datenbank laden
   let total = 0;
@@ -117,6 +151,17 @@ export async function connectReplica(
       return queue.length;
     },
   };
+}
+
+/** Beschreibt den Token, ohne ihn zu verraten (Länge, Anzahl Teile, typische Kopierfehler). */
+function describeToken(t?: string): string {
+  if (!t) return 'FEHLT – TURSO_AUTH_TOKEN ist leer';
+  const notes: string[] = [`${t.length} Zeichen`, `${t.split('.').length} Teile`];
+  if (!t.startsWith('eyJ')) notes.push('beginnt NICHT mit "eyJ"');
+  if (/\s/.test(t)) notes.push('enthält Leerzeichen/Zeilenumbruch');
+  if (/^["']|["']$/.test(t)) notes.push('enthält Anführungszeichen');
+  if (t.split('.').length !== 3) notes.push('erwartet sind 3 Teile – vermutlich unvollständig');
+  return notes.join(', ');
 }
 
 function normalize(v: unknown): SqlArg {
