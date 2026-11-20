@@ -148,8 +148,8 @@ export function attachGame(io: Server, db: Database) {
     });
 
     on<[{ spot: unknown; amount: unknown }]>('bet:place', (input) => {
-      currentRoom().placeBet(pid(), input?.spot, input?.amount);
-      return {};
+      const amount = currentRoom().placeBet(pid(), input?.spot, input?.amount);
+      return { amount };
     });
     on('bet:undo', () => (currentRoom().undo(pid()), {}));
     on('bet:clear', () => (currentRoom().clear(pid()), {}));

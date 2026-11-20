@@ -200,12 +200,24 @@ export class Room {
     return amount;
   }
 
-  placeBet(playerId: string, spotKey: unknown, amountRaw: unknown) {
+  /**
+   * Einsatz platzieren. `amountRaw === 'all'` = All-in: der Server setzt genau das aktuelle
+   * Guthaben (nicht der Client), damit es keine Abweichung durch Verzögerungen gibt.
+   * Gibt den tatsächlich gesetzten Betrag zurück.
+   */
+  placeBet(playerId: string, spotKey: unknown, amountRaw: unknown): number {
     this.requireBettingPlayer(playerId);
     const spot = getSpot(spotKey);
     if (!spot) throw new GameError('Ungültiges Wettfeld');
-    const amount = this.validateAmount(amountRaw);
+    let amount: number;
+    if (amountRaw === 'all') {
+      amount = this.db.getPlayer(playerId)?.balance ?? 0;
+      if (amount < 1) throw new GameError('Kein Guthaben mehr für All-in.');
+    } else {
+      amount = this.validateAmount(amountRaw);
+    }
     this.addBets(playerId, [{ spot: spot.key, amount }]);
+    return amount;
   }
 
   private addBets(playerId: string, newBets: Bet[]) {

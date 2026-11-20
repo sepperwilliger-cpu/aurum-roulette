@@ -131,6 +131,28 @@ describe('Einsätze & Auszahlung', () => {
     expect(room.snapshot().table[0].amount).toBe(1_000_000);
   });
 
+  it('All-in setzt genau das gesamte aktuelle Guthaben auf ein Feld', () => {
+    const host = ids[0];
+    room.placeBet(host, 'black', 1234);
+    const placed = room.placeBet(host, 'red', 'all');
+    expect(placed).toBe(START_BALANCE - 1234);
+    expect(balance(host)).toBe(0);
+    expect(room.snapshot().table.find((b) => b.spot === 'red')!.amount).toBe(START_BALANCE - 1234);
+    // nochmal All-in ohne Guthaben → verständlicher Fehler
+    expect(() => room.placeBet(host, 'odd', 'all')).toThrow(/Kein Guthaben/);
+    // Rückgängig gibt den All-in-Betrag zurück
+    room.undo(host);
+    expect(balance(host)).toBe(START_BALANCE - 1234);
+  });
+
+  it('All-in wird nach dem Drehen korrekt ausbezahlt', () => {
+    const host = ids[0];
+    const n = room.peekSecretForTests()!.number;
+    room.placeBet(host, `straight:${n}`, 'all');
+    vi.advanceTimersByTime(BETTING_MS + SPIN_MS);
+    expect(balance(host)).toBe(START_BALANCE * 36);
+  });
+
   it('Rückgängig, Löschen, Verdoppeln und Wiederholen', () => {
     const host = ids[0];
     room.placeBet(host, 'red', 100);

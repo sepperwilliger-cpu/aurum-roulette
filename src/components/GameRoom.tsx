@@ -10,10 +10,10 @@ import { useMediaQuery, useNow } from '@/client/hooks';
 import { sfx, unlockAudio } from '@/client/sound';
 import { music } from '@/client/music';
 import { BALL_SETTLE_MS, BETTING_MS, SPIN_MS, START_BALANCE } from '@/lib/constants';
-import { colorOf } from '@/lib/roulette';
+import { colorOf, describeSpot } from '@/lib/roulette';
 import type { ChatMessage, OwnProfile, Role, RoomState } from '@/lib/protocol';
 import { BettingTable } from './BettingTable';
-import { ChipRack } from './ChipRack';
+import { ALL_IN, ChipRack } from './ChipRack';
 import { ChatPanel, Distribution, HistoryStrip, Leaderboard, PlayerList, RoleSwitch } from './Panels';
 import { SettingsModal, StatsModal } from './Modals';
 import { ProfileForm } from './ProfileForm';
@@ -165,10 +165,16 @@ export function GameRoom({ code, spectate }: { code: string; spectate: boolean }
       if (!canBet) return;
       unlockAudio();
       sfx.chip();
-      const res = await request('bet:place', { spot, amount: selectedChip });
+      const allIn = selectedChip === ALL_IN;
+      // Bei All-in bestimmt der Server den Betrag (= exakt das aktuelle Guthaben)
+      const res = await request<{ amount: number }>('bet:place', { spot, amount: allIn ? 'all' : selectedChip });
       if (!res.ok) {
         sfx.error();
         toast(res.error, 'error');
+      } else if (allIn) {
+        sfx.chip();
+        toast(`🔥 ALL IN: ${fmt(res.amount)} Credits auf ${describeSpot(spot)}!`, 'success');
+        useGame.getState().setChip(1000); // danach wieder normaler Chip, damit kein zweites All-in passiert
       }
     },
     [canBet, selectedChip, toast],
